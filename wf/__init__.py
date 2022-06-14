@@ -4,9 +4,7 @@ Predict protein-coding genes with prodigal
 
 import subprocess
 from pathlib import Path
-from typing import Annotated
 
-from flytekit.core.annotation import FlyteAnnotation
 from latch import small_task, workflow
 from latch.types import LatchDir, LatchFile
 
@@ -15,7 +13,9 @@ from latch.types import LatchDir, LatchFile
 def predict_genes(fasta: LatchFile, sample_name: str, output_format: str) -> LatchDir:
 
     # A reference to our output.
-    output_dir = Path("prodigal/{sample_name}/").resolve()
+    output_dir_name = f"prodigal_results/{sample_name}/"
+    output_dir = Path(output_dir_name).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     output_file = output_dir.joinpath(f"{sample_name}.{output_format}")
     output_proteins = output_dir.joinpath(f"{sample_name}.faa")
@@ -38,27 +38,15 @@ def predict_genes(fasta: LatchFile, sample_name: str, output_format: str) -> Lat
 
     subprocess.run(_prodigal_cmd)
 
-    return LatchDir(str(output_dir), f"latch:///{output_dir}")
+    return LatchDir(str(output_dir), f"latch:///{output_dir_name}")
 
 
 @workflow
-def assemble_and_sort(
+def prodigal(
     fasta: LatchFile,
     sample_name: str = "prodigal_sample",
-    output_format: Annotated[
-        str,
-        FlyteAnnotation(
-            {
-                "rules": [
-                    {
-                        "regex": "(gbk|gff|sco)$",
-                        "message": "Only gbk, gff or sco extensions are valid",
-                    }
-                ]
-            }
-        ),
-    ] = "gbk",
-) -> LatchFile:
+    output_format: str = "gbk",
+) -> LatchDir:
     """Predict protein-coding genes with Prodigal
 
     Prodigal
