@@ -1,99 +1,100 @@
 """
-Assemble and sort some COVID reads...
+Predict protein-coding genes with prodigal
 """
 
 import subprocess
 from pathlib import Path
+from typing import Annotated
 
+from flytekit.core.annotation import FlyteAnnotation
 from latch import small_task, workflow
-from latch.types import LatchFile
+from latch.types import LatchDir, LatchFile
 
 
 @small_task
-def assembly_task(read1: LatchFile, read2: LatchFile) -> LatchFile:
+def predict_genes(fasta: LatchFile, sample_name: str, output_format: str) -> LatchDir:
 
     # A reference to our output.
-    sam_file = Path("covid_assembly.sam").resolve()
+    output_dir = Path("prodigal/{sample_name}/").resolve()
 
-    _bowtie2_cmd = [
-        "bowtie2/bowtie2",
-        "--local",
-        "-x",
-        "wuhan",
-        "-1",
-        read1.local_path,
-        "-2",
-        read2.local_path,
-        "--very-sensitive-local",
-        "-S",
-        str(sam_file),
-    ]
+    output_file = output_dir.joinpath(f"{sample_name}.{output_format}")
+    output_proteins = output_dir.joinpath(f"{sample_name}.faa")
+    output_genes = output_dir.joinpath(f"{sample_name}.fna")
+    output_scores = output_dir.joinpath(f"{sample_name}.cds")
 
-    subprocess.run(_bowtie2_cmd)
-
-    return LatchFile(str(sam_file), "latch:///covid_assembly.sam")
-
-
-@small_task
-def sort_bam_task(sam: LatchFile) -> LatchFile:
-
-    bam_file = Path("covid_sorted.bam").resolve()
-
-    _samtools_sort_cmd = [
-        "samtools",
-        "sort",
+    _prodigal_cmd = [
+        "/root/prodigal",
+        "-i",
+        fasta.local_path,
         "-o",
-        str(bam_file),
-        "-O",
-        "bam",
-        sam.local_path,
+        str(output_file),
+        "-a",
+        str(output_proteins),
+        "-d",
+        str(output_genes),
+        "-s",
+        str(output_scores),
     ]
 
-    subprocess.run(_samtools_sort_cmd)
+    subprocess.run(_prodigal_cmd)
 
-    return LatchFile(str(bam_file), "latch:///covid_sorted.bam")
+    return LatchDir(str(output_dir), f"latch:///{output_dir}")
 
 
 @workflow
-def assemble_and_sort(read1: LatchFile, read2: LatchFile) -> LatchFile:
-    """Description...
+def assemble_and_sort(
+    fasta: LatchFile,
+    sample_name: str = "prodigal_sample",
+    output_format: Annotated[
+        str,
+        FlyteAnnotation(
+            {
+                "rules": [
+                    {
+                        "regex": "(gbk|gff|sco)$",
+                        "message": "Only gbk, gff or sco extensions are valid",
+                    }
+                ]
+            }
+        ),
+    ] = "gbk",
+) -> LatchFile:
+    """Predict protein-coding genes with Prodigal
 
-    markdown header
+    Prodigal
     ----
 
-    Write some documentation about your workflow in
-    markdown here:
-
-    > Regular markdown constructs work as expected.
-
-    # Heading
-
-    * content1
-    * content2
-
     __metadata__:
-        display_name: Assemble and Sort FastQ Files
+        display_name: Prodigal (Gene prediction software)
         author:
-            name:
+            name: João Vitor Cavalcante
             email:
-            github:
-        repository:
+            github: https://github.com/jvfe/
+        repository: https://github.com/jvfe/prodigal-latch
         license:
-            id: MIT
+            id: GPL-3.0
 
     Args:
 
-        read1:
-          Paired-end read 1 file to be assembled.
+        sample_name:
+          Sample name (will define output file names).
 
           __metadata__:
-            display_name: Read1
+            display_name: Sample name
 
-        read2:
-          Paired-end read 2 file to be assembled.
+        fasta:
+          Single/multiple FASTA input sequence.
 
           __metadata__:
-            display_name: Read2
+            display_name: FASTA
+
+        output_format:
+          Specify main output file format (one of gbk, gff or sco).
+
+          __metadata__:
+            display_name: Output file format (gbk, gff or sco)
+
     """
-    sam = assembly_task(read1=read1, read2=read2)
-    return sort_bam_task(sam=sam)
+    return predict_genes(
+        fasta=fasta, sample_name=sample_name, output_format=output_format
+    )
