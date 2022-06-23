@@ -50,7 +50,10 @@ def prodigal(
     """Predict protein-coding genes with Prodigal
 
     Prodigal
-    ----
+    --------
+
+    Prodigal is a protein-coding gene predictor for prokaryotic genomes.
+    Read more about it [here](https://github.com/hyattpd/Prodigal).
 
     __metadata__:
         display_name: Prodigal (Gene prediction software)
