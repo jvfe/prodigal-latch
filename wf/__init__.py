@@ -26,6 +26,8 @@ def predict_genes(fasta: LatchFile, sample_name: str, output_format: str) -> Lat
         "/root/prodigal",
         "-i",
         fasta.local_path,
+        "-f",
+        output_format,
         "-o",
         str(output_file),
         "-a",
