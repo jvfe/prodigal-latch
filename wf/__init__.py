@@ -65,7 +65,7 @@ def prodigal(
             github: https://github.com/jvfe/
         repository: https://github.com/jvfe/prodigal-latch
         license:
-            id: GPL-3.0
+            id: MIT
 
     Args:
 
